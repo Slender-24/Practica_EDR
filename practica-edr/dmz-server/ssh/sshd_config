@@ -1,0 +1,37 @@
+# ============================================================
+#  SSH — Configuració del servidor (Exercici 2 — punt 3)
+#  Accés limitat a LAN. Rate limiting via MaxAuthTries.
+# ============================================================
+
+# Protocol i port
+Port 22
+Protocol 2
+AddressFamily inet
+
+# Autenticació
+PermitRootLogin no
+MaxAuthTries 3
+MaxSessions 5
+PasswordAuthentication yes
+PubkeyAuthentication yes
+PermitEmptyPasswords no
+
+# Restricció d'accés per xarxa (complementa nftables)
+# Wazuh Active Response necessita connexió local
+AllowUsers testuser
+
+# Seguretat de sessió
+LoginGraceTime 30s
+ClientAliveInterval 300
+ClientAliveCountMax 2
+TCPKeepAlive yes
+
+# Logging (Wazuh agent el monitoritza)
+SyslogFacility AUTH
+LogLevel VERBOSE
+
+# Desactivar característiques innecessàries
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/openssh/sftp-server

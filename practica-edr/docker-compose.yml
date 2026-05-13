@@ -1,0 +1,195 @@
+version: "3.9"
+
+# ============================================================
+#  PRÀCTICA EDR — Docker Compose
+#  Zones: WAN (10.0.0.0/24) | LAN (192.168.10.0/24) | DMZ (172.16.0.0/24)
+# ============================================================
+
+networks:
+  net_wan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.0.0/24
+  net_lan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.10.0/24
+  net_dmz:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.0.0/24
+
+volumes:
+  wazuh_indexer_data:
+  wazuh_manager_etc:
+  wazuh_manager_var:
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  #  GATEWAY — Router/Firewall (nftables)
+  # ──────────────────────────────────────────────────────────
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    hostname: gateway
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.accept_source_route=0
+      - net.ipv4.conf.all.send_redirects=0
+      - net.ipv4.conf.all.accept_redirects=0
+      - net.ipv4.conf.default.accept_source_route=0
+      - net.ipv4.conf.default.send_redirects=0
+      - net.ipv4.conf.default.accept_redirects=0
+    networks:
+      net_wan:
+        ipv4_address: 10.0.0.1
+      net_lan:
+        ipv4_address: 192.168.10.1
+      net_dmz:
+        ipv4_address: 172.16.0.1
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────
+  #  DMZ SERVER — Apache2 + SSH + Wazuh Agent + auditd
+  # ──────────────────────────────────────────────────────────
+  dmz-server:
+    build: ./dmz-server
+    container_name: dmz-server
+    hostname: dmz-server
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - AUDIT_CONTROL
+      - AUDIT_WRITE
+    networks:
+      net_dmz:
+        ipv4_address: 172.16.0.10
+    ports:
+      - "8080:80"     # HTTP (accés des de la VM per verificació)
+      - "2222:22"     # SSH  (accés des de la VM per verificació)
+    environment:
+      - WAZUH_MANAGER=192.168.10.30
+      - WAZUH_AGENT_NAME=dmz-server
+    depends_on:
+      - gateway
+      - wazuh-manager
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────
+  #  LAN CLIENT — Gestió + Hydra (simulació brute force)
+  # ──────────────────────────────────────────────────────────
+  lan-client:
+    build: ./lan-client
+    container_name: lan-client
+    hostname: lan-client
+    cap_add:
+      - NET_ADMIN
+    networks:
+      net_lan:
+        ipv4_address: 192.168.10.20
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────
+  #  WAZUH INDEXER (OpenSearch) — Base de dades alertes
+  # ──────────────────────────────────────────────────────────
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:4.7.3
+    container_name: wazuh-indexer
+    hostname: wazuh-indexer
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh_indexer_data:/var/lib/wazuh-indexer
+      - ./wazuh/certs/root-ca.pem:/etc/wazuh-indexer/certs/root-ca.pem:ro
+      - ./wazuh/certs/wazuh-indexer.pem:/etc/wazuh-indexer/certs/wazuh-indexer.pem:ro
+      - ./wazuh/certs/wazuh-indexer-key.pem:/etc/wazuh-indexer/certs/wazuh-indexer-key.pem:ro
+    networks:
+      net_lan:
+        ipv4_address: 192.168.10.31
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────
+  #  WAZUH MANAGER — EDR/EDM centralitzat
+  # ──────────────────────────────────────────────────────────
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.7.3
+    container_name: wazuh-manager
+    hostname: wazuh-manager
+    environment:
+      - INDEXER_URL=https://192.168.10.31:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD}
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat-key.pem
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=${WAZUH_API_PASSWORD}
+    volumes:
+      - wazuh_manager_etc:/var/ossec/etc
+      - wazuh_manager_var:/var/ossec/var
+      - ./wazuh/config/ossec.conf:/var/ossec/etc/ossec.conf:ro
+      - ./wazuh/config/local_rules.xml:/var/ossec/etc/rules/local_rules.xml:ro
+      - ./wazuh/config/active-response/firewall-drop.sh:/var/ossec/active-response/bin/firewall-drop.sh
+      - ./wazuh/certs/root-ca-manager.pem:/etc/ssl/root-ca.pem:ro
+      - ./wazuh/certs/wazuh-manager.pem:/etc/ssl/filebeat.pem:ro
+      - ./wazuh/certs/wazuh-manager-key.pem:/etc/ssl/filebeat-key.pem:ro
+    ports:
+      - "1514:1514/udp"   # Agents
+      - "1515:1515"       # Agent enrollment
+      - "514:514/udp"     # Syslog
+      - "55000:55000"     # Wazuh API
+    networks:
+      net_lan:
+        ipv4_address: 192.168.10.30
+    depends_on:
+      - wazuh-indexer
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────
+  #  WAZUH DASHBOARD — Panell de gestió web
+  # ──────────────────────────────────────────────────────────
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:4.7.3
+    container_name: wazuh-dashboard
+    hostname: wazuh-dashboard
+    environment:
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD}
+      - WAZUH_API_URL=https://192.168.10.30
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=${WAZUH_DASHBOARD_PASSWORD}
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=${WAZUH_API_PASSWORD}
+    volumes:
+      - ./wazuh/certs/root-ca.pem:/etc/wazuh-dashboard/certs/root-ca.pem:ro
+      - ./wazuh/certs/wazuh-dashboard.pem:/etc/wazuh-dashboard/certs/wazuh-dashboard.pem:ro
+      - ./wazuh/certs/wazuh-dashboard-key.pem:/etc/wazuh-dashboard/certs/wazuh-dashboard-key.pem:ro
+    ports:
+      - "443:443"     # Dashboard HTTPS
+    networks:
+      net_lan:
+        ipv4_address: 192.168.10.32
+    depends_on:
+      - wazuh-indexer
+      - wazuh-manager
+    restart: unless-stopped

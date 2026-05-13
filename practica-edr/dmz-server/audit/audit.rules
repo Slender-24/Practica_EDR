@@ -1,0 +1,108 @@
+## ============================================================
+##  AUDITD — Regles EDR (Exercici 3b)
+##  Detecta: ncat, socat, shells reversos, processos fills Apache
+##  Wazuh llegeix /var/log/audit/audit.log i genera alertes
+## ============================================================
+
+# ── Eliminar totes les regles prèvies ────────────────────
+-D
+
+# ── Configuració bàsica ──────────────────────────────────
+-b 8192
+-f 1
+--backlog_wait_time 60000
+
+# ── Immutabilitat (requereix reboot per modificar) ───────
+# -e 2   # Desactivat per facilitar les proves
+
+## ============================================================
+##  BINARIS SOSPITOSOS — Exercici 3b
+##  Detecta execució de: ncat, netcat, socat, nmap
+## ============================================================
+
+# Netcat / Ncat (shells reversos)
+-w /usr/bin/ncat          -p x -k SUSPICIOUS_BINARY -F arch=b64
+-w /usr/bin/netcat        -p x -k SUSPICIOUS_BINARY -F arch=b64
+-w /usr/bin/nc            -p x -k SUSPICIOUS_BINARY -F arch=b64
+-w /bin/nc                -p x -k SUSPICIOUS_BINARY -F arch=b64
+-w /usr/bin/nc.traditional -p x -k SUSPICIOUS_BINARY -F arch=b64
+
+# Socat (tunneling / shells inversos)
+-w /usr/bin/socat         -p x -k SUSPICIOUS_BINARY -F arch=b64
+
+# Nmap (enumeració)
+-w /usr/bin/nmap          -p x -k SUSPICIOUS_BINARY -F arch=b64
+
+## ============================================================
+##  SHELLS REVERSOS — Detecció per syscalls (Exercici 3b)
+##  Qualsevol execució de shell amb -i (interactiva)
+## ============================================================
+
+# Exec de /bin/bash -i o /bin/sh -i (reverse shell típic)
+-a always,exit -F arch=b64 -S execve \
+    -F a0=/bin/bash -F a1=-i \
+    -k REVERSE_SHELL
+
+-a always,exit -F arch=b64 -S execve \
+    -F a0=/bin/sh -F a1=-i \
+    -k REVERSE_SHELL
+
+# Detecció de qualsevol shell invocada per apache2 (Exercici 3b + alerta nivell 10)
+-a always,exit -F arch=b64 -S execve \
+    -F exe=/usr/sbin/apache2 \
+    -F a0=/bin/bash \
+    -k APACHE_CHILD_SHELL
+
+-a always,exit -F arch=b64 -S execve \
+    -F exe=/usr/sbin/apache2 \
+    -F a0=/bin/sh \
+    -k APACHE_CHILD_SHELL
+
+# Python/Perl reverse shells (mètodes comuns)
+-a always,exit -F arch=b64 -S execve \
+    -F exe=/usr/bin/python3 \
+    -k PYTHON_EXEC
+
+-a always,exit -F arch=b64 -S execve \
+    -F exe=/usr/bin/perl \
+    -k PERL_EXEC
+
+## ============================================================
+##  CONNEXIONS DE XARXA — Processos fills d'Apache (Exercici 3b)
+##  Detecta connexions sortints iniciades per processos Apache
+## ============================================================
+
+# Syscall connect() des de processos apache2
+-a always,exit -F arch=b64 -S connect \
+    -F exe=/usr/sbin/apache2 \
+    -k APACHE_OUTBOUND_CONN
+
+# Syscall connect() des de workers apache2 (mpm prefork/worker)
+-a always,exit -F arch=b64 -S connect \
+    -F comm=apache2 \
+    -k APACHE_OUTBOUND_CONN
+
+## ============================================================
+##  ESCALADA DE PRIVILEGIS — Monitorització adicional
+## ============================================================
+
+# sudo/su
+-w /usr/bin/sudo -p x -k PRIVILEGE_ESC
+-w /usr/bin/su   -p x -k PRIVILEGE_ESC
+
+# Modificació de passwd/shadow
+-w /etc/passwd  -p wa -k CREDENTIALS_CHANGE
+-w /etc/shadow  -p wa -k CREDENTIALS_CHANGE
+-w /etc/sudoers -p wa -k SUDOERS_CHANGE
+
+## ============================================================
+##  FITXERS CRÍTICS DEL SISTEMA
+## ============================================================
+
+-w /etc/crontab      -p wa -k CRON_CHANGE
+-w /etc/cron.d/      -p wa -k CRON_CHANGE
+-w /var/spool/cron/  -p wa -k CRON_CHANGE
+
+# Móduls del kernel
+-a always,exit -F arch=b64 -S init_module -S finit_module \
+    -k KERNEL_MODULE_LOAD
