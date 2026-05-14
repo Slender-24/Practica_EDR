@@ -1,15 +1,15 @@
-FROM debian:bookworm-slim
+FROM alpine:3.19
 
 LABEL maintainer="PracticaEDR"
 LABEL description="Gateway/Firewall amb nftables - Zones WAN/LAN/DMZ"
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     nftables \
     iproute2 \
-    iputils-ping \
+    iputils \
     tcpdump \
     procps \
-    && rm -rf /var/lib/apt/lists/*
+    bash
 
 COPY sysctl.conf /etc/sysctl.d/99-gateway.conf
 COPY nftables.conf /etc/nftables.conf
