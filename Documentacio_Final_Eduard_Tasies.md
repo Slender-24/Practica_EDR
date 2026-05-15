@@ -25,7 +25,8 @@ L'entorn consta dels següents contenidors:
 ### 1.a Segmentació de zones
 S'han creat subxarxes independents per evitar el moviment lateral no autoritzat. La segmentació s'ha validat comprovant que el tràfic només flueix quan el gateway ho permet explícitament.
 
-![Regles de filtratge inicials](./capturas/Filtratge.png)
+<img width="1560" height="657" alt="image" src="https://github.com/user-attachments/assets/3be5285a-6f20-4fb9-8014-ba2ba38350f5" />
+
 *Captura 2: Política de DROP per defecte en la cadena FORWARD.*
 
 **Prova de connectivitat (LAN -> DMZ):**
