@@ -15,7 +15,8 @@ L'entorn consta dels següents contenidors:
 *   **lan-client:** Equip de gestió per fer proves.
 *   **Stack Wazuh:** Indexer, Manager i Dashboard per a la monitorització EDR.
 
-![Estructura de contenidors](./capturas/Estructura_contenedores.png)
+<img width="1560" height="657" alt="image" src="https://github.com/user-attachments/assets/b7b66171-abd9-48f8-81c5-dcc0dc1d39ae" />
+
 *Captura 1: Verificació de l'estat dels contenidors (Up).*
 
 ---
@@ -25,7 +26,8 @@ L'entorn consta dels següents contenidors:
 ### 1.a Segmentació de zones
 S'han creat subxarxes independents per evitar el moviment lateral no autoritzat. La segmentació s'ha validat comprovant que el tràfic només flueix quan el gateway ho permet explícitament.
 
-<img width="1560" height="657" alt="image" src="https://github.com/user-attachments/assets/3be5285a-6f20-4fb9-8014-ba2ba38350f5" />
+<img width="1163" height="531" alt="image" src="https://github.com/user-attachments/assets/4e8acaf2-1a02-46fc-b4ae-e834ae7fa443" />
+
 
 *Captura 2: Política de DROP per defecte en la cadena FORWARD.*
 
@@ -53,7 +55,8 @@ PING 192.168.10.20 (192.168.10.20): 56 data bytes
 ### 1.b Hardening del Gateway (Anti-MITM)
 S'han aplicat paràmetres de kernel (`sysctl`) per evitar atacs de redireccionament i rutes falsificades.
 
-![Configuració sysctl](./capturas/Valors_0.png)
+<img width="1407" height="153" alt="image" src="https://github.com/user-attachments/assets/f8c6fa4f-a9db-4ee5-bb09-e06800fff951" />
+
 *Captura 3: Paràmetres accept_redirects i send_redirects a 0.*
 
 ---
@@ -65,13 +68,15 @@ S'han implementat regles **Stateful** que només permeten connexions noves (SYN)
 ### 2.1 HTTP/S i DNS restringit
 El servidor DMZ només pot fer consultes DNS al servidor de Cloudflare (1.1.1.1). Qualsevol altre intent és bloquejat.
 
-![Regles HTTP i DNS](./capturas/Captura6.png)
+<img width="1167" height="145" alt="image" src="https://github.com/user-attachments/assets/2f9f78e0-536e-4391-8061-aad900eeca8d" />
+
 *Captura 4: Regles per als ports 80, 443 i 53 (Whitelist DNS).*
 
 ### 2.2 SSH amb Rate Limiting
 S'ha configurat un límit de 3 connexions per minut per evitar atacs de força bruta abans que arribin a l'aplicació.
 
-![SSH Rate Limiting](./capturas/Captura8.png)
+<img width="1172" height="252" alt="image" src="https://github.com/user-attachments/assets/ef93d1e8-7f3f-40be-84e9-79f080f59952" />
+
 *Captura 5: Configuració de limit rate a nftables.*
 
 ---
