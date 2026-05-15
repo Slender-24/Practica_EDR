@@ -13,6 +13,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
     auditd \
     audispd-plugins \
+    curl \
+    gnupg \
+    ca-certificates \
+    iputils-ping \
+    iproute2 \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Usuari SSH de prova (target del brute force - Exercici 3c)

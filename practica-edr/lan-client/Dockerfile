@@ -5,11 +5,10 @@ LABEL description="LAN Client: gestio + eines de test (Hydra, nmap, SSH)"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Kali ja té: nmap, curl, wget, python3, iproute2, net-tools,
-# openssh-client, netcat, procps → NO cal reinstal·lar-los
-# Només afegim Hydra que pot no estar per defecte:
+# Kali minimal NO porta ping per defecte
 RUN apt-get update && apt-get install -y --no-install-recommends \
     hydra \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Llista de contrasenyes per brute force (Exercici 3c)

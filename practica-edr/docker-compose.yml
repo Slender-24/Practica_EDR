@@ -149,8 +149,10 @@ services:
     hostname: wazuh-dashboard
     environment:
       - WAZUH_API_URL=https://192.168.10.30
+      - INDEXER_URL=https://wazuh-indexer:9200
+      - OPENSEARCH_URL=https://wazuh-indexer:9200
     ports:
-      - "8443:443"
+      - "8443:5601"
     networks:
       net_lan:
         ipv4_address: 192.168.10.32
