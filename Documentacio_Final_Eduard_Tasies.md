@@ -79,6 +79,12 @@ S'ha configurat un límit de 3 connexions per minut per evitar atacs de força b
 
 *Captura 5: Configuració de limit rate a nftables.*
 
+## Configuracions addicionals per port 22, 123 i echo-requests
+<img width="1225" height="367" alt="image" src="https://github.com/user-attachments/assets/707aa96c-45d3-4981-a26c-71df8cb81539" />
+<img width="1000" height="155" alt="image" src="https://github.com/user-attachments/assets/770c0150-b88e-4e36-8761-40db197e3d04" />
+<img width="1048" height="190" alt="image" src="https://github.com/user-attachments/assets/b7e08d74-3b28-47ad-a382-d80935b72d60" />
+
+
 ---
 
 ## 4. Exercici 3 — Endpoint Detection & Management (Wazuh)
